@@ -13,6 +13,7 @@
  * Для навчального прикладу (і для більшості лендінгів) цього достатньо.
  */
 import * as THREE from "three";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -95,6 +96,8 @@ const fragmentShader = /* glsl */ `
 
 export class BokehPass {
   target: THREE.WebGLRenderTarget;
+  /** М'яке світіння: додається в HDR-буфер ПЕРЕД боке, тож розмивається разом зі сценою. */
+  private bloom: UnrealBloomPass;
   private quad: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
@@ -104,6 +107,8 @@ export class BokehPass {
       samples,
       depthTexture: new THREE.DepthTexture(width, height, THREE.UnsignedIntType),
     });
+
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 0.45, 0.4, 0.8);
 
     this.quad = new THREE.Mesh(
       new THREE.PlaneGeometry(2, 2),
@@ -132,6 +137,7 @@ export class BokehPass {
     const w = Math.floor(width * pixelRatio);
     const h = Math.floor(height * pixelRatio);
     this.target.setSize(w, h);
+    this.bloom.setSize(w, h);
     this.quad.material.uniforms.uResolution.value.set(w, h);
     // Радіус розмиття задано в «CSS-пікселях», щоб на retina боке не ставало вдвічі меншим.
     this.quad.material.uniforms.uMaxBlur.value = 14 * pixelRatio;
@@ -152,11 +158,14 @@ export class BokehPass {
 
     renderer.setRenderTarget(this.target);
     renderer.render(scene, camera);
+    // Bloom дописує світіння прямо в this.target (readBuffer); writeBuffer йому не потрібен.
+    this.bloom.render(renderer, null as unknown as THREE.WebGLRenderTarget, this.target, 0.016, false);
     renderer.setRenderTarget(null);
     renderer.render(this.quad, this.quadCamera);
   }
 
   dispose() {
+    this.bloom.dispose();
     this.target.depthTexture?.dispose();
     this.target.dispose();
     this.quad.geometry.dispose();

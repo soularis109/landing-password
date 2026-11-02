@@ -7,9 +7,8 @@
  *   скрол/інтро → GSAP → SceneState → update() → камера/меші → BokehPass → екран
  */
 import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { BokehPass } from "./BokehPass";
-import { PyramidField } from "./Pyramid";
+import { ParticleField } from "./ParticleField";
 import { initialState, type SceneState } from "./state";
 import { Mouse } from "../mouse";
 
@@ -19,10 +18,11 @@ export class Experience {
   scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
   private rig = new THREE.Group(); // обертається від миші, сама камера рухається від скролу
-  private field: PyramidField;
+  private field: ParticleField;
   private bokeh: BokehPass | null;
   private mouse = new Mouse();
-  private envRT: THREE.WebGLRenderTarget | null = null;
+  private mouseWorld = new THREE.Vector3();
+  private ray = new THREE.Vector3();
   private isMobile: boolean;
 
   constructor(canvas: HTMLCanvasElement, { isMobile }: { isMobile: boolean }) {
@@ -35,24 +35,15 @@ export class Experience {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
 
-    this.scene.background = new THREE.Color(0x0a0a10);
-    this.scene.fog = new THREE.Fog(0x0a0a10, 14, 30);
+    this.scene.background = new THREE.Color(0x000000);
 
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
     this.rig.add(this.camera);
     this.scene.add(this.rig);
 
-    // Кольорові «студійні» джерела: їхні відблиски на гранях стають кулями боке.
-    const key = new THREE.DirectionalLight(0xffffff, 2.2);
-    key.position.set(4, 6, 5);
-    const warm = new THREE.PointLight(0xff8a5c, 40, 30);
-    warm.position.set(-5, -2, 3);
-    const cool = new THREE.PointLight(0x6b7cff, 50, 30);
-    cool.position.set(5, 3, -4);
-    this.scene.add(key, warm, cool);
-
-    this.field = new PyramidField({ count: isMobile ? 60 : 160 });
-    this.scene.add(this.field.group);
+    // Тетраедри: 100×100 = 10 000 на десктопі, 84×84 ≈ 7 000 на мобільних (як і в оригіналі).
+    this.field = new ParticleField(this.renderer, { size: isMobile ? 84 : 100, isMobile });
+    this.scene.add(this.field.group, this.field.floaterMesh);
 
     // На мобільних bokeh вимкнено: 48 вибірок на піксель надто дорого для слабких GPU.
     this.bokeh = isMobile ? null : new BokehPass(1, 1, { samples: 4 });
@@ -63,20 +54,11 @@ export class Experience {
   }
 
   /**
-   * Задачі для прелоадера. В оригіналі це завантаження .glb/KTX/EXR;
-   * тут це генерація оточення і попередня компіляція шейдерів.
-   * Компіляція й дає «ривок» першого кадру, якщо її не зробити заздалегідь.
+   * Задачі для прелоадера. Шейдери компілюються заздалегідь, інакше перший кадр «стрибає».
+   * Форми й симуляція вже створені в конструкторі (генерація точок синхронна).
    */
   loadTasks(): Promise<unknown>[] {
-    const env = new Promise<void>((resolve) => {
-      const pmrem = new THREE.PMREMGenerator(this.renderer);
-      this.envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
-      this.scene.environment = this.envRT.texture;
-      pmrem.dispose();
-      resolve();
-    });
-    const compile = env.then(() => this.renderer.compileAsync(this.scene, this.camera));
-    return [env, compile];
+    return [this.renderer.compileAsync(this.scene, this.camera)];
   }
 
   resize = () => {
@@ -102,7 +84,13 @@ export class Experience {
     this.camera.position.set(s.camX, s.camY, s.camZ + introPush);
     this.camera.lookAt(0, s.lookY, 0);
 
-    this.field.update(time, s);
+    // Курсор → точка на площині z=0 у світових координатах (для відштовхування частинок на GPU).
+    this.camera.updateMatrixWorld();
+    this.ray.set(this.mouse.current.x, this.mouse.current.y, 0.5).unproject(this.camera).sub(this.camera.position).normalize();
+    const hit = -this.camera.position.z / this.ray.z;
+    const hasMouse = this.mouse.target.x !== 0 || this.mouse.target.y !== 0;
+    this.mouseWorld.copy(this.camera.position).addScaledVector(this.ray, hit);
+    this.field.update(time, dt, s, hasMouse ? this.mouseWorld : null);
     this.renderer.toneMappingExposure = s.exposure * s.intro;
 
     if (this.bokeh) {
@@ -121,7 +109,6 @@ export class Experience {
     this.mouse.destroy();
     this.field.dispose();
     this.bokeh?.dispose();
-    this.envRT?.dispose();
     this.renderer.dispose();
   }
 }

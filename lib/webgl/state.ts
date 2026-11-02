@@ -2,7 +2,7 @@
  * SceneState — головний прийом усієї анімації.
  *
  * GSAP не знає про Three.js. Він анімує звичайні числа в цьому об'єкті:
- *   - scroll-timeline (ScrollTrigger зі scrub) змінює camZ, focus, heroRotY…;
+ *   - scroll-timeline (ScrollTrigger зі scrub) змінює camZ, focus, morph, partX…;
  *   - intro-timeline після прелоадера змінює intro від 0 до 1;
  *   - render loop щокадру читає ці числа й застосовує їх до камери, мешів і шейдерів.
  *
@@ -14,11 +14,14 @@ export type SceneState = {
   camY: number;
   camZ: number;
   lookY: number;
-  heroRotY: number;
-  heroTiltX: number;
-  heroY: number;
-  heroScale: number;
-  spread: number;
+  /** Позиція, масштаб і обертання хмари частинок. */
+  partX: number;
+  partY: number;
+  partScale: number;
+  partRotX: number;
+  partRotY: number;
+  /** Прогрес морфінгу між формами: 0 мозок, 1 розсип, 2 лампочка, 3 глобус. */
+  morph: number;
   /** Дистанція фокусу (у світових одиницях від камери). */
   focus: number;
   /** Сила розмиття поза фокусом. */
@@ -33,13 +36,14 @@ export const initialState = (): SceneState => ({
   camY: 0.2,
   camZ: 9,
   lookY: 0,
-  heroRotY: 0,
-  heroTiltX: 0,
-  heroY: 0,
-  heroScale: 1,
-  spread: 1,
+  partX: 1.7,
+  partY: -0.1,
+  partScale: 2.1,
+  partRotX: 0.12,
+  partRotY: -0.5,
+  morph: 0,
   focus: 9,
-  aperture: 1,
+  aperture: 0.6,
   exposure: 1,
   intro: 0,
 });

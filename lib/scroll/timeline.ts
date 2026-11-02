@@ -18,18 +18,21 @@ import { splitLines } from "./splitLines";
 
 gsap.registerPlugin(ScrollTrigger);
 
-/** Кадр сцени для кожної секції після hero (hero = initialState). */
+/**
+ * Кадр сцени для кожної секції після hero (hero = initialState).
+ * morph: 0 мозок → 1 розсип → 2 лампочка → 3 глобус; partX/partScale ставлять форму поруч із текстом.
+ */
 const keyframes: Partial<SceneState>[] = [
-  // 01 «Ясність»: камера відходить праворуч, фокус на герої, рій трохи розходиться
-  { camX: 2.6, camY: 0.6, camZ: 10.5, heroRotY: Math.PI * 0.5, heroTiltX: 0.15, spread: 1.15, focus: 10.6, aperture: 1.2 },
-  // 02 «Глибина»: проліт крізь рій; фокус переходить на передній план, герой розмивається
-  { camX: -1.8, camY: -0.4, camZ: 5.2, heroRotY: Math.PI * 1.1, heroTiltX: -0.2, spread: 0.85, focus: 3.2, aperture: 2.4 },
-  // 03 «Фокус»: великий план героя, глибока різкість на ньому
-  { camX: 0, camY: 0.2, camZ: 4.6, lookY: 0.15, heroRotY: Math.PI * 1.75, heroTiltX: 0, heroScale: 1.15, spread: 1.4, focus: 4.6, aperture: 1.6, exposure: 1.15 },
-  // 04 слайдер: герой «пливе» вгору, сцена тьмяніє, щоб не заважати контенту
-  { camX: 0, camY: -1.2, camZ: 12, lookY: -0.6, heroRotY: Math.PI * 2.2, heroY: 1.2, heroScale: 0.9, spread: 1.8, focus: 12, aperture: 2.8, exposure: 0.55 },
-  // 05 CTA: піраміда повертається в центр, як фінальний «логотип»
-  { camX: 0, camY: 0, camZ: 8, lookY: 0, heroRotY: Math.PI * 3, heroY: 0, heroScale: 1, spread: 0.9, focus: 8, aperture: 1, exposure: 1 },
+  // 01 «Ясність»: мозок розсипається, хмара йде на середину
+  { partX: 0, partY: 0, partScale: 1.5, partRotX: 0, partRotY: 0.4, morph: 1, focus: 9, aperture: 0.8 },
+  // 02 «Глибина»: збирається лампочка ліворуч; фокус ближче, дальні тетраедри розпливаються
+  { partX: -1.9, partY: -0.1, partScale: 2.1, partRotX: 0, partRotY: 0.35, morph: 2, focus: 9, aperture: 1.2 },
+  // 03 «Фокус»: глобус праворуч, велика різкість на ньому
+  { partX: 1.9, partY: 0, partScale: 1.9, partRotX: 0.25, partRotY: 1.6, morph: 3, focus: 9, aperture: 0.7, exposure: 1.1 },
+  // 04 слайдер: глобус відходить угору й тьмяніє, щоб не заважати контенту
+  { partX: 0, partY: 1.1, partScale: 1.1, partRotX: 0.1, partRotY: 3.0, morph: 3, focus: 9, aperture: 1.6, exposure: 0.5 },
+  // 05 CTA: форма «перемотується» назад у мозок
+  { partX: 0, partY: 0, partScale: 1.9, partRotX: 0.12, partRotY: 6.1, morph: 0, focus: 9, aperture: 0.6, exposure: 1 },
 ];
 
 export function createSceneTimeline(state: SceneState, root: HTMLElement) {
